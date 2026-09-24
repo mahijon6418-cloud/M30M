@@ -1,4 +1,4 @@
-name: Build M30 - Real strongSwan IKEv2
+name: Build M30 VPN - Real strongSwan IKEv2
 
 on:
   workflow_dispatch:
@@ -8,15 +8,15 @@ on:
 
 jobs:
   build:
-    name: Build M30 Android
+    name: Build M30 VPN Android
     runs-on: ubuntu-24.04
 
     steps:
 
       # ============================================
-      # 1. Checkout M30
+      # 1. Checkout
       # ============================================
-      - name: Checkout M30
+      - name: Checkout M30 VPN
         uses: actions/checkout@v4
 
 
@@ -85,7 +85,7 @@ jobs:
 
 
       # ============================================
-      # 6. Verify Android environment
+      # 6. Verify Android
       # ============================================
       - name: Verify Android environment
         run: |
@@ -157,9 +157,27 @@ jobs:
 
 
       # ============================================
-      # 11. Inject M30 UI
+      # 11. Configure unique M30 VPN Application ID
       # ============================================
-      - name: Inject M30 UI
+      - name: Configure M30 VPN Application ID
+        working-directory: strongswan/src/frontends/android
+        run: |
+
+          sed -i \
+            's/applicationId "org.strongswan.android"/applicationId "com.m30.vpn"/' \
+            app/build.gradle
+
+          echo "======================================"
+          echo "M30 VPN Application ID"
+          echo "======================================"
+
+          grep -n "applicationId" app/build.gradle
+
+
+      # ============================================
+      # 12. Inject M30 VPN UI
+      # ============================================
+      - name: Inject M30 VPN UI
         run: |
 
           APP="strongswan/src/frontends/android/app"
@@ -215,7 +233,7 @@ jobs:
 
 
           # =========================================
-          # Change launcher Activity
+          # Launcher Activity
           # =========================================
           sed -i \
             's#android:name=".ui.MainActivity"#android:name=".ui.M30Activity"#g' \
@@ -223,7 +241,7 @@ jobs:
 
 
           # =========================================
-          # Change application name to M30
+          # Application name = M30 VPN
           # =========================================
           sed -i \
             's#android:label="@string/app_name"#android:label="@string/m30_app_name"#g' \
@@ -231,7 +249,7 @@ jobs:
 
 
           # =========================================
-          # Change application icon
+          # Application icon
           # =========================================
           sed -i \
             's#android:icon="@mipmap/ic_launcher"#android:icon="@drawable/m30_icon"#g' \
@@ -239,7 +257,7 @@ jobs:
 
 
           # =========================================
-          # Change round icon
+          # Round icon
           # =========================================
           sed -i \
             's#android:roundIcon="@mipmap/ic_launcher_round"#android:roundIcon="@drawable/m30_icon"#g' \
@@ -247,54 +265,95 @@ jobs:
 
 
           # =========================================
-          # Change app_name resource
+          # Set app_name to M30 VPN
           # =========================================
           sed -i \
-            's#<string name="app_name">strongSwan VPN Client</string>#<string name="app_name">M30</string>#' \
+            's#<string name="app_name">strongSwan VPN Client</string>#<string name="app_name">M30 VPN</string>#g' \
             "$APP/src/main/res/values/strings.xml" \
             || true
 
 
+          # =========================================
+          # Ensure m30_app_name exists
+          # =========================================
+          cat > "$APP/src/main/res/values/m30_strings.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="m30_app_name">M30 VPN</string>
+          </resources>
+          EOF
+
+
           echo "======================================"
-          echo "M30 UI installed"
-          echo "M30 icon installed"
-          echo "M30 launcher installed"
-          echo "M30 application name installed"
+          echo "M30 VPN UI installed"
+          echo "Application ID: com.m30.vpn"
+          echo "Application Name: M30 VPN"
+          echo "Custom Icon: M30"
           echo "======================================"
 
 
       # ============================================
-      # 12. Verify M30 files
+      # 13. Verify M30 VPN configuration
       # ============================================
-      - name: Verify M30 files
+      - name: Verify M30 VPN configuration
         run: |
 
           APP="strongswan/src/frontends/android/app"
 
+
+          echo "Checking M30Activity..."
+
           test -f \
             "$APP/src/main/java/org/strongswan/android/ui/M30Activity.java"
 
-          test -f \
-            "$APP/src/main/res/values/m30_colors.xml"
 
-          test -f \
-            "$APP/src/main/res/values/m30_strings.xml"
-
-          test -f \
-            "$APP/src/main/res/values/m30_themes.xml"
+          echo "Checking M30 icon..."
 
           test -f \
             "$APP/src/main/res/drawable/m30_icon.xml"
 
+
+          echo "Checking M30 colors..."
+
+          test -f \
+            "$APP/src/main/res/values/m30_colors.xml"
+
+
+          echo "Checking M30 strings..."
+
+          test -f \
+            "$APP/src/main/res/values/m30_strings.xml"
+
+
+          echo "Checking M30 theme..."
+
+          test -f \
+            "$APP/src/main/res/values/m30_themes.xml"
+
+
+          echo "Checking Application ID..."
+
+          grep -q \
+            'applicationId "com.m30.vpn"' \
+            "$APP/build.gradle"
+
+
+          echo "Checking M30 VPN name..."
+
+          grep -q \
+            'M30 VPN' \
+            "$APP/src/main/res/values/m30_strings.xml"
+
+
           echo "======================================"
-          echo "All M30 files OK"
+          echo "M30 VPN configuration OK"
           echo "======================================"
 
 
       # ============================================
-      # 13. Build signed DEBUG APK
+      # 14. Build signed DEBUG APK
       # ============================================
-      - name: Build signed M30 Debug APK
+      - name: Build signed M30 VPN Debug APK
         working-directory: strongswan/src/frontends/android
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
@@ -311,13 +370,13 @@ jobs:
 
 
       # ============================================
-      # 14. Find APK
+      # 15. Find APK
       # ============================================
-      - name: Find APK
+      - name: Find M30 VPN APK
         run: |
 
           echo "======================================"
-          echo "APK FILES"
+          echo "M30 VPN APK FILES"
           echo "======================================"
 
           find \
@@ -328,12 +387,12 @@ jobs:
 
 
       # ============================================
-      # 15. Upload APK
+      # 16. Upload APK
       # ============================================
-      - name: Upload M30 APK
+      - name: Upload M30 VPN APK
         uses: actions/upload-artifact@v4
         with:
-          name: M30-signed-debug
+          name: M30-VPN-signed-debug
           path: |
             strongswan/src/frontends/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
