@@ -1,6 +1,7 @@
 package org.strongswan.android.ui;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -18,10 +19,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.strongswan.android.R;
 import org.strongswan.android.data.VpnProfile;
 import org.strongswan.android.data.VpnProfileDataSource;
-import org.strongswan.android.data.VpnProfileSource;
 import org.strongswan.android.data.VpnType;
 import org.strongswan.android.logic.VpnStateService;
 
@@ -30,28 +29,30 @@ import java.util.List;
 public class M30Activity extends Activity
         implements VpnStateService.VpnStateListener {
 
+    /*
+     * ============================================================
+     * M30 VPN
+     * Real strongSwan IKEv2 / EAP
+     * ============================================================
+     */
+
     private static final int VPN_PREPARE = 3001;
 
-    private static final String PROFILE_NAME = "M30";
-
-    private static final String DEFAULT_SERVER =
-            "149.50.208.98";
+    /*
+     * Profile name
+     */
+    private static final String PROFILE_NAME = "M30 VPN";
 
     /*
-     * این Identity فقط داخل پروفایل استفاده می‌شود
-     * و در رابط کاربری نمایش داده نمی‌شود.
+     * Default connection settings
      */
-    private static final String SERVER_IDENTITY =
-            "pointtoserver.com";
+    private static final String DEFAULT_SERVER = "149.50.208.98";
+    private static final String DEFAULT_IDENTITY = "pointtoserver.com";
+    private static final String DEFAULT_DNS = "8.8.8.8";
 
-    private static final String DEFAULT_DNS =
-            "8.8.8.8";
-
-
-    // ==============================
-    // M30 COLORS
-    // ==============================
-
+    /*
+     * Colors
+     */
     private static final int BG_DISCONNECTED =
             Color.rgb(11, 18, 32);
 
@@ -61,7 +62,6 @@ public class M30Activity extends Activity
     private static final int BG_CONNECTED =
             Color.rgb(8, 43, 29);
 
-
     private static final int BUTTON_DISCONNECTED =
             Color.rgb(45, 116, 190);
 
@@ -70,7 +70,6 @@ public class M30Activity extends Activity
 
     private static final int BUTTON_CONNECTED =
             Color.rgb(28, 155, 92);
-
 
     private static final int TEXT_WHITE =
             Color.rgb(245, 247, 250);
@@ -84,36 +83,39 @@ public class M30Activity extends Activity
     private static final int TEXT_CONNECTED =
             Color.rgb(92, 225, 150);
 
-
-    // ==============================
-    // UI
-    // ==============================
-
+    /*
+     * UI
+     */
     private LinearLayout root;
 
     private EditText server;
+    private EditText identity;
     private EditText username;
     private EditText password;
 
-    private TextView status;
-
+    private Button save;
     private Button connect;
 
+    private TextView status;
 
-    // ==============================
-    // VPN
-    // ==============================
-
+    /*
+     * strongSwan VPN service
+     */
     private VpnStateService vpnService;
 
-    private boolean bound;
+    private boolean bound = false;
 
+    /*
+     * Current VPN profile
+     */
     private VpnProfile profile;
 
 
-    // ==============================
-    // SERVICE CONNECTION
-    // ==============================
+    /*
+     * ============================================================
+     * Service connection
+     * ============================================================
+     */
 
     private final ServiceConnection connection =
             new ServiceConnection() {
@@ -142,15 +144,16 @@ public class M30Activity extends Activity
                 ComponentName name) {
 
             bound = false;
-
             vpnService = null;
         }
     };
 
 
-    // ==============================
-    // CREATE
-    // ==============================
+    /*
+     * ============================================================
+     * Activity creation
+     * ============================================================
+     */
 
     @Override
     protected void onCreate(Bundle state) {
@@ -165,38 +168,29 @@ public class M30Activity extends Activity
                 BG_DISCONNECTED
         );
 
-
-        /*
-         * Username و Password عمداً ذخیره نمی‌شوند.
-         *
-         * برای اینکه اطلاعات نسخه‌های قبلی
-         * هم باقی نماند، username قبلی حذف می‌شود.
-         */
-
-        getPreferences(MODE_PRIVATE)
-                .edit()
-                .remove("username")
-                .remove("password")
-                .apply();
-
-
         buildUi();
 
+        loadSavedProfile();
 
-        bindService(
+        Intent serviceIntent =
                 new Intent(
                         this,
                         VpnStateService.class
-                ),
+                );
+
+        bindService(
+                serviceIntent,
                 connection,
                 Context.BIND_AUTO_CREATE
         );
     }
 
 
-    // ==============================
-    // BUILD UI
-    // ==============================
+    /*
+     * ============================================================
+     * Build UI
+     * ============================================================
+     */
 
     private void buildUi() {
 
@@ -208,9 +202,9 @@ public class M30Activity extends Activity
 
         root.setPadding(
                 dp(22),
-                dp(28),
+                dp(25),
                 dp(22),
-                dp(22)
+                dp(20)
         );
 
         root.setGravity(
@@ -222,13 +216,13 @@ public class M30Activity extends Activity
         );
 
 
-        // ==============================
-        // M30 TITLE
-        // ==============================
+        /*
+         * Title
+         */
 
         TextView title =
                 text(
-                        "M30",
+                        "M30 VPN",
                         34,
                         true
                 );
@@ -243,103 +237,195 @@ public class M30Activity extends Activity
         );
 
 
-        // ==============================
-        // SUBTITLE
-        // ==============================
+        /*
+         * Subtitle
+         */
 
-        TextView sub =
+        TextView subtitle =
                 text(
                         "IKEv2 Secure Connection",
                         15,
                         false
                 );
 
-        sub.setTextColor(
+        subtitle.setTextColor(
                 TEXT_MUTED
         );
 
+        LinearLayout.LayoutParams subtitleParams =
+                lp(-1, -2);
+
+        subtitleParams.bottomMargin =
+                dp(18);
+
         root.addView(
-                sub,
-                lp(-1, -2)
+                subtitle,
+                subtitleParams
         );
 
 
-        // ==============================
-        // SERVER
-        // ==============================
+        /*
+         * ========================================================
+         * SERVER
+         * ========================================================
+         */
 
         server =
                 field("Server");
 
         server.setText(
-                getPreferences(MODE_PRIVATE)
-                        .getString(
-                                "server",
-                                DEFAULT_SERVER
-                        )
+                DEFAULT_SERVER
         );
+
+        server.setSingleLine(true);
 
         root.addView(
                 server,
-                lp(-1, dp(56))
+                lp(-1, dp(54))
         );
 
 
-        // ==============================
-        // USERNAME
-        // ==============================
+        /*
+         * ========================================================
+         * SERVER IDENTITY
+         * ========================================================
+         */
+
+        identity =
+                field("Server Identity");
+
+        identity.setText(
+                DEFAULT_IDENTITY
+        );
+
+        identity.setSingleLine(true);
+
+        identity.setInputType(
+                InputType.TYPE_CLASS_TEXT
+                        |
+                InputType.TYPE_TEXT_VARIATION_NORMAL
+        );
+
+        root.addView(
+                identity,
+                lp(-1, dp(54))
+        );
+
+
+        /*
+         * ========================================================
+         * USERNAME
+         * ========================================================
+         */
 
         username =
                 field("Username");
 
-        /*
-         * Username کاملاً خالی است.
-         *
-         * کاربر باید خودش وارد کند.
-         */
-
-        username.setText("");
+        username.setSingleLine(true);
 
         username.setInputType(
-                InputType.TYPE_CLASS_TEXT |
+                InputType.TYPE_CLASS_TEXT
+                        |
                 InputType.TYPE_TEXT_VARIATION_NORMAL
         );
 
         root.addView(
                 username,
-                lp(-1, dp(56))
+                lp(-1, dp(54))
         );
 
 
-        // ==============================
-        // PASSWORD
-        // ==============================
+        /*
+         * ========================================================
+         * PASSWORD
+         * ========================================================
+         */
 
         password =
                 field("Password");
 
-        /*
-         * Password کاملاً خالی است.
-         *
-         * Password ذخیره نمی‌شود.
-         */
-
-        password.setText("");
+        password.setSingleLine(true);
 
         password.setInputType(
-                InputType.TYPE_CLASS_TEXT |
+                InputType.TYPE_CLASS_TEXT
+                        |
                 InputType.TYPE_TEXT_VARIATION_PASSWORD
         );
 
         root.addView(
                 password,
-                lp(-1, dp(56))
+                lp(-1, dp(54))
         );
 
 
-        // ==============================
-        // STATUS
-        // ==============================
+        /*
+         * ========================================================
+         * SAVE BUTTON
+         * ========================================================
+         */
+
+        save =
+                new Button(this);
+
+        save.setText(
+                "SAVE"
+        );
+
+        save.setTextSize(
+                14
+        );
+
+        save.setTextColor(
+                TEXT_WHITE
+        );
+
+        save.setAllCaps(
+                false
+        );
+
+        save.setBackgroundColor(
+                Color.rgb(55, 75, 105)
+        );
+
+        LinearLayout.LayoutParams saveParams =
+                lp(-1, dp(50));
+
+        saveParams.topMargin =
+                dp(12);
+
+        root.addView(
+                save,
+                saveParams
+        );
+
+
+        /*
+         * SAVE action
+         */
+
+        save.setOnClickListener(
+                new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+
+                if (saveProfile()) {
+
+                    Toast.makeText(
+                            M30Activity.this,
+                            "M30 VPN settings saved",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                }
+            }
+        });
+
+
+        /*
+         * ========================================================
+         * STATUS
+         * ========================================================
+         */
 
         status =
                 text(
@@ -356,15 +442,23 @@ public class M30Activity extends Activity
                 TEXT_MUTED
         );
 
+        LinearLayout.LayoutParams statusParams =
+                lp(-1, dp(45));
+
+        statusParams.topMargin =
+                dp(14);
+
         root.addView(
                 status,
-                lp(-1, dp(64))
+                statusParams
         );
 
 
-        // ==============================
-        // CONNECT BUTTON
-        // ==============================
+        /*
+         * ========================================================
+         * CONNECT BUTTON
+         * ========================================================
+         */
 
         connect =
                 new Button(this);
@@ -373,20 +467,20 @@ public class M30Activity extends Activity
                 "CONNECT"
         );
 
-        connect.setAllCaps(
-                false
+        connect.setTextSize(
+                16
         );
 
         connect.setTextColor(
                 Color.WHITE
         );
 
-        connect.setBackgroundColor(
-                BUTTON_DISCONNECTED
+        connect.setAllCaps(
+                false
         );
 
-        connect.setOnClickListener(
-                v -> toggleConnection()
+        connect.setBackgroundColor(
+                BUTTON_DISCONNECTED
         );
 
         root.addView(
@@ -396,225 +490,276 @@ public class M30Activity extends Activity
 
 
         /*
-         * عمداً هیچ نوشته‌ای زیر دکمه
-         * قرار داده نشده است.
+         * Connect / Disconnect action
          */
 
+        connect.setOnClickListener(
+                new View.OnClickListener() {
 
-        setContentView(root);
-    }
+            @Override
+            public void onClick(View v) {
 
-
-    // ==============================
-    // EDIT TEXT
-    // ==============================
-
-    private EditText field(
-            String hint) {
-
-        EditText e =
-                new EditText(this);
-
-        e.setHint(hint);
-
-        e.setTextSize(16);
-
-        e.setSingleLine(true);
-
-        e.setPadding(
-                dp(14),
-                0,
-                dp(14),
-                0
-        );
-
-        return e;
-    }
-
-
-    // ==============================
-    // TEXT
-    // ==============================
-
-    private TextView text(
-            String s,
-            int size,
-            boolean bold) {
-
-        TextView t =
-                new TextView(this);
-
-        t.setText(s);
-
-        t.setTextSize(size);
-
-        if (bold) {
-
-            t.setTypeface(
-                    null,
-                    android.graphics.Typeface.BOLD
-            );
-        }
-
-        return t;
-    }
-
-
-    // ==============================
-    // LAYOUT
-    // ==============================
-
-    private LinearLayout.LayoutParams lp(
-            int w,
-            int h) {
-
-        LinearLayout.LayoutParams p =
-                new LinearLayout.LayoutParams(
-                        w,
-                        h
-                );
-
-        p.setMargins(
-                0,
-                dp(8),
-                0,
-                dp(8)
-        );
-
-        return p;
-    }
-
-
-    // ==============================
-    // DP
-    // ==============================
-
-    private int dp(int value) {
-
-        return Math.round(
-                value *
-                getResources()
-                        .getDisplayMetrics()
-                        .density
-        );
-    }
-
-
-    // ==============================
-    // CONNECT / DISCONNECT
-    // ==============================
-
-    private void toggleConnection() {
-
-        if (vpnService != null &&
-                vpnService.getState() !=
-                        VpnStateService.State.DISABLED) {
-
-            vpnService.disconnect();
-
-            return;
-        }
-
-
-        String host =
-                server
-                        .getText()
-                        .toString()
-                        .trim();
-
-
-        String user =
-                username
-                        .getText()
-                        .toString()
-                        .trim();
-
-
-        String pass =
-                password
-                        .getText()
-                        .toString();
-
-
-        if (host.isEmpty() ||
-                user.isEmpty() ||
-                pass.isEmpty()) {
-
-            Toast.makeText(
-                    this,
-                    "Server, username and password are required",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            return;
-        }
+                toggleConnection();
+            }
+        });
 
 
         /*
-         * فقط Server ذخیره می‌شود.
-         *
-         * Username و Password
-         * هرگز ذخیره نمی‌شوند.
+         * Display UI
          */
 
-        getPreferences(MODE_PRIVATE)
-                .edit()
-                .putString(
-                        "server",
-                        host
-                )
-                .remove("username")
-                .remove("password")
-                .apply();
-
-
-        saveAndPrepare(
-                host,
-                user,
-                pass
+        setContentView(
+                root
         );
     }
 
 
-    // ==============================
-    // SAVE PROFILE
-    // ==============================
+    /*
+     * ============================================================
+     * Load saved M30 VPN profile
+     * ============================================================
+     */
 
-    private void saveAndPrepare(
-            String host,
-            String user,
-            String pass) {
+    private void loadSavedProfile() {
 
-
-        VpnProfileSource source =
-                new VpnProfileSource(this);
-
-
-        VpnProfileDataSource db =
-                source.open();
-
+        VpnProfileDataSource dataSource =
+                new VpnProfileDataSource(this);
 
         try {
 
+            dataSource.open();
+
             List<VpnProfile> profiles =
-                    db.getAllVpnProfiles();
+                    dataSource.getAllVpnProfiles();
+
+            if (profiles != null) {
+
+                for (VpnProfile p : profiles) {
+
+                    if (p == null) {
+                        continue;
+                    }
+
+                    String name =
+                            p.getName();
+
+                    if (PROFILE_NAME.equals(name)
+                            || "M30".equals(name)) {
+
+                        profile = p;
+
+                        /*
+                         * Server
+                         */
+
+                        if (p.getGateway() != null
+                                && !p.getGateway().trim().isEmpty()) {
+
+                            server.setText(
+                                    p.getGateway()
+                            );
+                        }
 
 
-            profile = null;
+                        /*
+                         * Username
+                         */
+
+                        if (p.getUsername() != null) {
+
+                            username.setText(
+                                    p.getUsername()
+                            );
+                        }
 
 
-            for (VpnProfile p :
-                    profiles) {
+                        /*
+                         * Password
+                         */
 
-                if (PROFILE_NAME.equals(
-                        p.getName())) {
+                        if (p.getPassword() != null) {
 
-                    profile = p;
+                            password.setText(
+                                    p.getPassword()
+                            );
+                        }
 
-                    break;
+
+                        /*
+                         * Server Identity
+                         *
+                         * The remote identity is stored separately
+                         * in the profile.
+                         */
+
+                        try {
+
+                            String remoteId =
+                                    p.getRemoteId();
+
+                            if (remoteId != null
+                                    && !remoteId.trim().isEmpty()) {
+
+                                identity.setText(
+                                        remoteId
+                                );
+                            }
+
+                        } catch (Exception ignored) {
+                            /*
+                             * Keep default Identity if unavailable.
+                             */
+                        }
+
+                        break;
+                    }
                 }
             }
 
+        } catch (Exception e) {
+
+            Toast.makeText(
+                    this,
+                    "Could not load saved VPN settings",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+        } finally {
+
+            dataSource.close();
+        }
+    }
+
+
+    /*
+     * ============================================================
+     * Save / update M30 VPN profile
+     * ============================================================
+     */
+
+    private boolean saveProfile() {
+
+        String gateway =
+                server.getText()
+                        .toString()
+                        .trim();
+
+        String remoteIdentity =
+                identity.getText()
+                        .toString()
+                        .trim();
+
+        String user =
+                username.getText()
+                        .toString()
+                        .trim();
+
+        String pass =
+                password.getText()
+                        .toString();
+
+        /*
+         * Validation
+         */
+
+        if (gateway.isEmpty()) {
+
+            server.requestFocus();
+
+            Toast.makeText(
+                    this,
+                    "Enter Server",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return false;
+        }
+
+
+        if (remoteIdentity.isEmpty()) {
+
+            identity.requestFocus();
+
+            Toast.makeText(
+                    this,
+                    "Enter Server Identity",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return false;
+        }
+
+
+        if (user.isEmpty()) {
+
+            username.requestFocus();
+
+            Toast.makeText(
+                    this,
+                    "Enter Username",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return false;
+        }
+
+
+        if (pass.isEmpty()) {
+
+            password.requestFocus();
+
+            Toast.makeText(
+                    this,
+                    "Enter Password",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return false;
+        }
+
+
+        VpnProfileDataSource dataSource =
+                new VpnProfileDataSource(this);
+
+        try {
+
+            dataSource.open();
+
+
+            /*
+             * Find existing profile
+             */
+
+            if (profile == null) {
+
+                List<VpnProfile> profiles =
+                        dataSource.getAllVpnProfiles();
+
+                if (profiles != null) {
+
+                    for (VpnProfile p : profiles) {
+
+                        if (p == null) {
+                            continue;
+                        }
+
+                        String name =
+                                p.getName();
+
+                        if (PROFILE_NAME.equals(name)
+                                || "M30".equals(name)) {
+
+                            profile = p;
+                            break;
+                        }
+                    }
+                }
+            }
+
+
+            /*
+             * Create profile if it doesn't exist
+             */
 
             if (profile == null) {
 
@@ -631,103 +776,163 @@ public class M30Activity extends Activity
             }
 
 
-            // Server
-            profile.setGateway(
-                    host
+            /*
+             * ====================================================
+             * Write all settings
+             * ====================================================
+             */
+
+            profile.setName(
+                    PROFILE_NAME
             );
 
 
             /*
-             * Server Identity
-             * فقط داخلی
+             * Server
              */
 
-            profile.setRemoteId(
-                    SERVER_IDENTITY
+            profile.setGateway(
+                    gateway
             );
 
 
-            // Username
+            /*
+             * IKEv2 EAP
+             */
+
+            profile.setVpnType(
+                    VpnType.IKEV2_EAP
+            );
+
+
+            /*
+             * Username
+             */
+
             profile.setUsername(
                     user
             );
 
 
-            // Password
+            /*
+             * Password
+             */
+
             profile.setPassword(
                     pass
             );
 
 
-            // DNS
+            /*
+             * Server Identity
+             */
+
+            profile.setRemoteId(
+                    remoteIdentity
+            );
+
+
+            /*
+             * DNS
+             */
+
             profile.setDnsServers(
                     DEFAULT_DNS
             );
 
 
-            // Block IPv6
+            /*
+             * Block IPv6
+             */
+
             profile.setSplitTunneling(
-                    VpnProfile
-                            .SPLIT_TUNNELING_BLOCK_IPV6
+                    VpnProfile.SPLIT_TUNNELING_BLOCK_IPV6
             );
 
 
-            profile.setReadOnly(
-                    false
-            );
+            /*
+             * ====================================================
+             * Save to strongSwan database
+             * ====================================================
+             */
 
+            if (profile.getId() > 0) {
 
-            if (profile.getId() < 0) {
-
-                profile =
-                        db.insertProfile(
-                                profile
-                        );
+                dataSource.updateVpnProfile(
+                        profile
+                );
 
             } else {
 
-                db.updateVpnProfile(
-                        profile
-                );
+                VpnProfile inserted =
+                        dataSource.insertProfile(
+                                profile
+                        );
+
+                if (inserted == null) {
+
+                    Toast.makeText(
+                            this,
+                            "Could not save VPN profile",
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    return false;
+                }
+
+                profile = inserted;
             }
+
+
+            /*
+             * Update fields currently displayed
+             */
+
+            server.setText(
+                    profile.getGateway()
+            );
+
+            username.setText(
+                    profile.getUsername()
+            );
+
+            password.setText(
+                    profile.getPassword()
+            );
+
+            identity.setText(
+                    remoteIdentity
+            );
+
+
+            return true;
+
+        } catch (Exception e) {
+
+            Toast.makeText(
+                    this,
+                    "Save error: " + e.getMessage(),
+                    Toast.LENGTH_LONG
+            ).show();
+
+            return false;
 
         } finally {
 
-            source.close();
-        }
-
-
-        // ==============================
-        // VPN PERMISSION
-        // ==============================
-
-        Intent prepare =
-                VpnService.prepare(
-                        this
-                );
-
-
-        if (prepare != null) {
-
-            startActivityForResult(
-                    prepare,
-                    VPN_PREPARE
-            );
-
-        } else {
-
-            startTunnel();
+            dataSource.close();
         }
     }
 
 
-    // ==============================
-    // START TUNNEL
-    // ==============================
+    /*
+     * ============================================================
+     * Connect / Disconnect
+     * ============================================================
+     */
 
-    private void startTunnel() {
+    private void toggleConnection() {
 
-        if (vpnService == null) {
+        if (!bound || vpnService == null) {
 
             Toast.makeText(
                     this,
@@ -739,249 +944,294 @@ public class M30Activity extends Activity
         }
 
 
-        Bundle info =
-                new Bundle();
+        VpnStateService.State state =
+                vpnService.getState();
 
 
-        info.putString(
-                VpnProfileDataSource.KEY_UUID,
-                profile
-                        .getUUID()
-                        .toString()
-        );
+        /*
+         * If connected, disconnect.
+         */
+
+        if (state == VpnStateService.State.CONNECTED
+                || state == VpnStateService.State.CONNECTING
+                || state == VpnStateService.State.DISCONNECTING) {
+
+            vpnService.disconnect();
+
+            return;
+        }
 
 
-        info.putString(
-                VpnProfileDataSource.KEY_PASSWORD,
-                profile.getPassword()
-        );
+        /*
+         * Save latest manual settings first.
+         */
+
+        if (!saveProfile()) {
+            return;
+        }
 
 
-        info.putString(
-                VpnProfileDataSource.KEY_USERNAME,
-                profile.getUsername()
-        );
+        /*
+         * Prepare Android VPN permission.
+         */
 
-
-        vpnService.connect(
-                info,
-                true
-        );
-
-
-        status.setText(
-                "Connecting…"
-        );
-
-        connect.setText(
-                "DISCONNECT"
-        );
-
-
-        applyConnectingColors();
+        prepareVpnService();
     }
 
 
-    // ==============================
-    // VPN PERMISSION RESULT
-    // ==============================
+    /*
+     * ============================================================
+     * Android VPN permission
+     * ============================================================
+     */
+
+    private void prepareVpnService() {
+
+        Intent intent;
+
+        try {
+
+            intent =
+                    VpnService.prepare(this);
+
+        } catch (IllegalStateException e) {
+
+            Toast.makeText(
+                    this,
+                    "VPN cannot be prepared",
+                    Toast.LENGTH_LONG
+            ).show();
+
+            return;
+        }
+
+
+        /*
+         * Permission dialog required
+         */
+
+        if (intent != null) {
+
+            try {
+
+                startActivityForResult(
+                        intent,
+                        VPN_PREPARE
+                );
+
+            } catch (ActivityNotFoundException e) {
+
+                Toast.makeText(
+                        this,
+                        "Android VPN service is unavailable",
+                        Toast.LENGTH_LONG
+                ).show();
+            }
+
+        } else {
+
+            /*
+             * Permission already granted
+             */
+
+            startM30Vpn();
+        }
+    }
+
+
+    /*
+     * ============================================================
+     * Start M30 VPN
+     * ============================================================
+     */
+
+    private void startM30Vpn() {
+
+        if (profile == null) {
+
+            if (!saveProfile()) {
+                return;
+            }
+        }
+
+
+        /*
+         * Connect through strongSwan VpnStateService.
+         */
+
+        try {
+
+            vpnService.connect(
+                    profile,
+                    false
+            );
+
+        } catch (Exception e) {
+
+            /*
+             * Some strongSwan versions expose the connection
+             * through a Bundle based method.
+             *
+             * Fall back to the profile bundle.
+             */
+
+            try {
+
+                Bundle bundle =
+                        new Bundle();
+
+                bundle.putParcelable(
+                        "profile",
+                        profile
+                );
+
+                vpnService.connect(
+                        bundle,
+                        false
+                );
+
+            } catch (Exception secondError) {
+
+                Toast.makeText(
+                        this,
+                        "VPN connection error",
+                        Toast.LENGTH_LONG
+                ).show();
+            }
+        }
+    }
+
+
+    /*
+     * ============================================================
+     * Activity result
+     * ============================================================
+     */
 
     @Override
     protected void onActivityResult(
-            int request,
-            int result,
+            int requestCode,
+            int resultCode,
             Intent data) {
 
         super.onActivityResult(
-                request,
-                result,
+                requestCode,
+                resultCode,
                 data
         );
 
 
-        if (request == VPN_PREPARE) {
+        if (requestCode == VPN_PREPARE) {
 
-            if (result == RESULT_OK) {
+            if (resultCode == RESULT_OK) {
 
-                startTunnel();
+                startM30Vpn();
 
             } else {
+
+                setDisconnectedUi();
 
                 Toast.makeText(
                         this,
                         "VPN permission was not granted",
                         Toast.LENGTH_SHORT
                 ).show();
-
-                applyDisconnectedColors();
             }
         }
     }
 
 
-    // ==============================
-    // REFRESH STATE
-    // ==============================
+    /*
+     * ============================================================
+     * strongSwan state listener
+     * ============================================================
+     */
+
+    @Override
+    public void stateChanged() {
+
+        runOnUiThread(
+                new Runnable() {
+
+                    @Override
+                    public void run() {
+
+                        refreshState();
+                    }
+                }
+        );
+    }
+
+
+    /*
+     * ============================================================
+     * Refresh connection state
+     * ============================================================
+     */
 
     private void refreshState() {
 
         if (vpnService == null) {
+
+            setDisconnectedUi();
+
             return;
         }
 
 
-        VpnStateService.State s =
+        VpnStateService.State state =
                 vpnService.getState();
 
 
-        if (s ==
-                VpnStateService.State.CONNECTED) {
+        if (state == VpnStateService.State.CONNECTED) {
 
-            status.setText(
-                    "Connected"
-            );
-
-            connect.setText(
-                    "DISCONNECT"
-            );
-
-            applyConnectedColors();
-
+            setConnectedUi();
 
         } else if (
-                s ==
-                VpnStateService.State.CONNECTING) {
+                state == VpnStateService.State.CONNECTING) {
 
-            status.setText(
-                    "Connecting…"
-            );
-
-            connect.setText(
-                    "DISCONNECT"
-            );
-
-            applyConnectingColors();
-
-
-        } else if (
-                s ==
-                VpnStateService.State.DISCONNECTING) {
-
-            status.setText(
-                    "Disconnecting…"
-            );
-
-            connect.setText(
-                    "DISCONNECT"
-            );
-
-            applyConnectingColors();
-
+            setConnectingUi();
 
         } else {
 
-            status.setText(
-                    "Disconnected"
-            );
-
-            connect.setText(
-                    "CONNECT"
-            );
-
-            applyDisconnectedColors();
+            setDisconnectedUi();
         }
     }
 
 
-    // ==============================
-    // DISCONNECTED COLORS
-    // ==============================
+    /*
+     * ============================================================
+     * Connected UI
+     * ============================================================
+     */
 
-    private void applyDisconnectedColors() {
-
-        root.setBackgroundColor(
-                BG_DISCONNECTED
-        );
-
-
-        getWindow().setStatusBarColor(
-                BG_DISCONNECTED
-        );
-
-
-        getWindow().setNavigationBarColor(
-                BG_DISCONNECTED
-        );
-
-
-        status.setTextColor(
-                TEXT_MUTED
-        );
-
-
-        connect.setBackgroundColor(
-                BUTTON_DISCONNECTED
-        );
-    }
-
-
-    // ==============================
-    // CONNECTING COLORS
-    // ==============================
-
-    private void applyConnectingColors() {
-
-        root.setBackgroundColor(
-                BG_CONNECTING
-        );
-
-
-        getWindow().setStatusBarColor(
-                BG_CONNECTING
-        );
-
-
-        getWindow().setNavigationBarColor(
-                BG_CONNECTING
-        );
-
-
-        status.setTextColor(
-                TEXT_CONNECTING
-        );
-
-
-        connect.setBackgroundColor(
-                BUTTON_CONNECTING
-        );
-    }
-
-
-    // ==============================
-    // CONNECTED COLORS
-    // ==============================
-
-    private void applyConnectedColors() {
+    private void setConnectedUi() {
 
         root.setBackgroundColor(
                 BG_CONNECTED
         );
 
-
         getWindow().setStatusBarColor(
                 BG_CONNECTED
         );
-
 
         getWindow().setNavigationBarColor(
                 BG_CONNECTED
         );
 
+
+        status.setText(
+                "Connected"
+        );
 
         status.setTextColor(
                 TEXT_CONNECTED
         );
 
+
+        connect.setText(
+                "DISCONNECT"
+        );
 
         connect.setBackgroundColor(
                 BUTTON_CONNECTED
@@ -989,41 +1239,216 @@ public class M30Activity extends Activity
     }
 
 
-    // ==============================
-    // STATE CALLBACK
-    // ==============================
+    /*
+     * ============================================================
+     * Connecting UI
+     * ============================================================
+     */
 
-    @Override
-    public void stateChanged() {
+    private void setConnectingUi() {
 
-        runOnUiThread(
-                this::refreshState
+        root.setBackgroundColor(
+                BG_CONNECTING
+        );
+
+        getWindow().setStatusBarColor(
+                BG_CONNECTING
+        );
+
+        getWindow().setNavigationBarColor(
+                BG_CONNECTING
+        );
+
+
+        status.setText(
+                "Connecting..."
+        );
+
+        status.setTextColor(
+                TEXT_CONNECTING
+        );
+
+
+        connect.setText(
+                "DISCONNECT"
+        );
+
+        connect.setBackgroundColor(
+                BUTTON_CONNECTING
         );
     }
 
 
-    // ==============================
-    // DESTROY
-    // ==============================
+    /*
+     * ============================================================
+     * Disconnected UI
+     * ============================================================
+     */
+
+    private void setDisconnectedUi() {
+
+        root.setBackgroundColor(
+                BG_DISCONNECTED
+        );
+
+        getWindow().setStatusBarColor(
+                BG_DISCONNECTED
+        );
+
+        getWindow().setNavigationBarColor(
+                BG_DISCONNECTED
+        );
+
+
+        status.setText(
+                "Disconnected"
+        );
+
+        status.setTextColor(
+                TEXT_MUTED
+        );
+
+
+        connect.setText(
+                "CONNECT"
+        );
+
+        connect.setBackgroundColor(
+                BUTTON_DISCONNECTED
+        );
+    }
+
+
+    /*
+     * ============================================================
+     * Activity destroy
+     * ============================================================
+     */
 
     @Override
     protected void onDestroy() {
 
-        if (bound &&
-                vpnService != null) {
+        if (bound && vpnService != null) {
 
-            vpnService.unregisterListener(
-                    this
-            );
+            try {
 
-            unbindService(
-                    connection
-            );
+                vpnService.unregisterListener(
+                        this
+                );
+
+            } catch (Exception ignored) {
+            }
+
+            try {
+
+                unbindService(
+                        connection
+                );
+
+            } catch (Exception ignored) {
+            }
 
             bound = false;
         }
 
-
         super.onDestroy();
+    }
+
+
+    /*
+     * ============================================================
+     * UI helpers
+     * ============================================================
+     */
+
+    private EditText field(
+            String hint) {
+
+        EditText edit =
+                new EditText(this);
+
+        edit.setHint(
+                hint
+        );
+
+        edit.setTextSize(
+                16
+        );
+
+        edit.setSingleLine(
+                true
+        );
+
+        edit.setTextColor(
+                TEXT_WHITE
+        );
+
+        edit.setHintTextColor(
+                TEXT_MUTED
+        );
+
+        edit.setPadding(
+                dp(14),
+                0,
+                dp(14),
+                0
+        );
+
+        edit.setBackgroundColor(
+                Color.rgb(25, 35, 50)
+        );
+
+        return edit;
+    }
+
+
+    private TextView text(
+            String value,
+            int size,
+            boolean bold) {
+
+        TextView view =
+                new TextView(this);
+
+        view.setText(
+                value
+        );
+
+        view.setTextSize(
+                size
+        );
+
+        if (bold) {
+
+            view.setTypeface(
+                    null,
+                    android.graphics.Typeface.BOLD
+            );
+        }
+
+        return view;
+    }
+
+
+    private LinearLayout.LayoutParams lp(
+            int width,
+            int height) {
+
+        return new LinearLayout.LayoutParams(
+                width,
+                height
+        );
+    }
+
+
+    private int dp(int value) {
+
+        float density =
+                getResources()
+                        .getDisplayMetrics()
+                        .density;
+
+        return (int)
+                (value * density + 0.5f);
     }
 }
