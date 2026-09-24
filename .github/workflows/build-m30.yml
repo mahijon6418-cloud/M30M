@@ -14,7 +14,7 @@ jobs:
     steps:
 
       # ============================================
-      # 1. Checkout
+      # 1. Checkout M30
       # ============================================
       - name: Checkout M30
         uses: actions/checkout@v4
@@ -85,7 +85,7 @@ jobs:
 
 
       # ============================================
-      # 6. Verify Android
+      # 6. Verify Android environment
       # ============================================
       - name: Verify Android environment
         run: |
@@ -174,31 +174,41 @@ jobs:
             "$APP/src/main/res/drawable"
 
 
+          # =========================================
           # M30 Activity
+          # =========================================
           cp \
             M30Activity.java \
             "$APP/src/main/java/org/strongswan/android/ui/M30Activity.java"
 
 
+          # =========================================
           # M30 colors
+          # =========================================
           cp \
             m30_colors.xml \
             "$APP/src/main/res/values/m30_colors.xml"
 
 
+          # =========================================
           # M30 strings
+          # =========================================
           cp \
             m30_strings.xml \
             "$APP/src/main/res/values/m30_strings.xml"
 
 
+          # =========================================
           # M30 theme
+          # =========================================
           cp \
             m30_themes.xml \
             "$APP/src/main/res/values/m30_themes.xml"
 
 
+          # =========================================
           # M30 icon
+          # =========================================
           cp \
             m30_icon.xml \
             "$APP/src/main/res/drawable/m30_icon.xml"
@@ -209,6 +219,14 @@ jobs:
           # =========================================
           sed -i \
             's#android:name=".ui.MainActivity"#android:name=".ui.M30Activity"#g' \
+            "$APP/src/main/AndroidManifest.xml"
+
+
+          # =========================================
+          # Change application name to M30
+          # =========================================
+          sed -i \
+            's#android:label="@string/app_name"#android:label="@string/m30_app_name"#g' \
             "$APP/src/main/AndroidManifest.xml"
 
 
@@ -229,7 +247,7 @@ jobs:
 
 
           # =========================================
-          # Change app name
+          # Change app_name resource
           # =========================================
           sed -i \
             's#<string name="app_name">strongSwan VPN Client</string>#<string name="app_name">M30</string>#' \
@@ -239,13 +257,14 @@ jobs:
 
           echo "======================================"
           echo "M30 UI installed"
-          echo "M30 ICON installed"
-          echo "strongSwan launcher replaced"
+          echo "M30 icon installed"
+          echo "M30 launcher installed"
+          echo "M30 application name installed"
           echo "======================================"
 
 
       # ============================================
-      # 12. Verify M30
+      # 12. Verify M30 files
       # ============================================
       - name: Verify M30 files
         run: |
@@ -273,15 +292,7 @@ jobs:
 
 
       # ============================================
-      # 13. BUILD DEBUG APK
-      #
-      # مهم:
-      # assembleDebug استفاده می‌کنیم.
-      #
-      # Android Gradle Plugin نسخه Debug را
-      # خودکار با debug keystore امضا می‌کند.
-      #
-      # بنابراین APK قابل نصب خواهد بود.
+      # 13. Build signed DEBUG APK
       # ============================================
       - name: Build signed M30 Debug APK
         working-directory: strongswan/src/frontends/android
@@ -317,7 +328,7 @@ jobs:
 
 
       # ============================================
-      # 15. Upload signed APK
+      # 15. Upload APK
       # ============================================
       - name: Upload M30 APK
         uses: actions/upload-artifact@v4
