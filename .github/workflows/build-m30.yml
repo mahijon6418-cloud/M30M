@@ -13,16 +13,16 @@ jobs:
 
     steps:
 
-      # --------------------------------------------------
-      # 1. دریافت سورس M30
-      # --------------------------------------------------
+      # ============================================
+      # 1. Checkout
+      # ============================================
       - name: Checkout M30
         uses: actions/checkout@v4
 
 
-      # --------------------------------------------------
-      # 2. نصب ابزارهای لینوکس
-      # --------------------------------------------------
+      # ============================================
+      # 2. Linux dependencies
+      # ============================================
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -48,9 +48,9 @@ jobs:
             libssl-dev
 
 
-      # --------------------------------------------------
+      # ============================================
       # 3. Java 17
-      # --------------------------------------------------
+      # ============================================
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -58,23 +58,18 @@ jobs:
           java-version: '17'
 
 
-      # --------------------------------------------------
+      # ============================================
       # 4. Android SDK
-      # --------------------------------------------------
-      # مهم:
-      # از v4 استفاده می‌کنیم.
-      # packages فقط platform-tools است تا مشکل
-      # قدیمی "Failed to find package tools" ایجاد نشود.
-      # --------------------------------------------------
+      # ============================================
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
 
 
-      # --------------------------------------------------
-      # 5. نصب Android SDK + NDK
-      # --------------------------------------------------
+      # ============================================
+      # 5. Android SDK + NDK
+      # ============================================
       - name: Install Android SDK and NDK
         run: |
           yes | sdkmanager --licenses >/dev/null || true
@@ -89,44 +84,27 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.3.13750724" >> "$GITHUB_ENV"
 
 
-      # --------------------------------------------------
-      # 6. بررسی محیط Android
-      # --------------------------------------------------
+      # ============================================
+      # 6. Verify Android
+      # ============================================
       - name: Verify Android environment
         run: |
-          echo "================================="
-          echo "JAVA"
-          echo "================================="
           java -version
 
-          echo "================================="
-          echo "ANDROID SDK"
-          echo "================================="
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-
-          echo "================================="
-          echo "ANDROID NDK"
-          echo "================================="
           echo "ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT"
 
           test -d "$ANDROID_SDK_ROOT/platforms/android-36"
-
           test -d "$ANDROID_SDK_ROOT/build-tools/36.0.0"
-
           test -d "$ANDROID_NDK_ROOT"
-
           test -x "$ANDROID_NDK_ROOT/ndk-build"
 
-          echo ""
-          echo "Android SDK: OK"
-          echo "Android NDK: OK"
+          echo "Android environment OK"
 
 
-      # --------------------------------------------------
-      # 7. دریافت strongSwan واقعی
-      # --------------------------------------------------
-      # این همان موتور واقعی IKEv2 / charon است.
-      # --------------------------------------------------
+      # ============================================
+      # 7. Clone official strongSwan
+      # ============================================
       - name: Clone official strongSwan
         run: |
           git clone \
@@ -136,9 +114,9 @@ jobs:
             strongswan
 
 
-      # --------------------------------------------------
-      # 8. آماده سازی strongSwan
-      # --------------------------------------------------
+      # ============================================
+      # 8. Prepare strongSwan
+      # ============================================
       - name: Prepare strongSwan
         working-directory: strongswan
         run: |
@@ -147,12 +125,9 @@ jobs:
           make dist
 
 
-      # --------------------------------------------------
-      # 9. دریافت OpenSSL
-      # --------------------------------------------------
-      # نسخه‌ای که در تست ساخت Android پروژه strongSwan
-      # استفاده می‌شود.
-      # --------------------------------------------------
+      # ============================================
+      # 9. Clone OpenSSL
+      # ============================================
       - name: Clone OpenSSL
         working-directory: strongswan
         run: |
@@ -163,9 +138,9 @@ jobs:
             openssl
 
 
-      # --------------------------------------------------
-      # 10. ساخت OpenSSL برای Android
-      # --------------------------------------------------
+      # ============================================
+      # 10. Build OpenSSL for Android
+      # ============================================
       - name: Build OpenSSL for Android
         working-directory: strongswan
         env:
@@ -181,110 +156,134 @@ jobs:
           src/frontends/android/openssl/build.sh
 
 
-      # --------------------------------------------------
-      # 11. قرار دادن رابط M30 داخل پروژه رسمی strongSwan
-      # --------------------------------------------------
+      # ============================================
+      # 11. Inject M30 UI
+      # ============================================
       - name: Inject M30 UI
         run: |
 
           APP="strongswan/src/frontends/android/app"
 
-          echo "M30 application directory:"
-          echo "$APP"
-
-          # Java
           mkdir -p \
             "$APP/src/main/java/org/strongswan/android/ui"
 
-          # Resources
           mkdir -p \
             "$APP/src/main/res/values"
 
-          # ------------------------------------------------
-          # M30Activity
-          # ------------------------------------------------
+          mkdir -p \
+            "$APP/src/main/res/drawable"
+
+
+          # M30 Activity
           cp \
             M30Activity.java \
             "$APP/src/main/java/org/strongswan/android/ui/M30Activity.java"
 
-          # ------------------------------------------------
+
           # M30 colors
-          # ------------------------------------------------
           cp \
             m30_colors.xml \
             "$APP/src/main/res/values/m30_colors.xml"
 
-          # ------------------------------------------------
+
           # M30 strings
-          # ------------------------------------------------
           cp \
             m30_strings.xml \
             "$APP/src/main/res/values/m30_strings.xml"
 
-          # ------------------------------------------------
-          # M30 themes
-          # ------------------------------------------------
+
+          # M30 theme
           cp \
             m30_themes.xml \
             "$APP/src/main/res/values/m30_themes.xml"
 
-          # ------------------------------------------------
-          # تغییر صفحه اصلی از MainActivity به M30Activity
-          # ------------------------------------------------
+
+          # M30 icon
+          cp \
+            m30_icon.xml \
+            "$APP/src/main/res/drawable/m30_icon.xml"
+
+
+          # =========================================
+          # Change launcher Activity
+          # =========================================
           sed -i \
-            's#android:name=".ui.MainActivity"#android:name=".ui.M30Activity"#' \
+            's#android:name=".ui.MainActivity"#android:name=".ui.M30Activity"#g' \
             "$APP/src/main/AndroidManifest.xml"
 
-          # ------------------------------------------------
-          # تغییر نام برنامه به M30
-          # ------------------------------------------------
+
+          # =========================================
+          # Change application icon
+          # =========================================
+          sed -i \
+            's#android:icon="@mipmap/ic_launcher"#android:icon="@drawable/m30_icon"#g' \
+            "$APP/src/main/AndroidManifest.xml"
+
+
+          # =========================================
+          # Change round icon
+          # =========================================
+          sed -i \
+            's#android:roundIcon="@mipmap/ic_launcher_round"#android:roundIcon="@drawable/m30_icon"#g' \
+            "$APP/src/main/AndroidManifest.xml"
+
+
+          # =========================================
+          # Change app name
+          # =========================================
           sed -i \
             's#<string name="app_name">strongSwan VPN Client</string>#<string name="app_name">M30</string>#' \
             "$APP/src/main/res/values/strings.xml" \
             || true
 
-          echo ""
-          echo "================================="
-          echo "M30 UI injected successfully"
-          echo "================================="
+
+          echo "======================================"
+          echo "M30 UI installed"
+          echo "M30 ICON installed"
+          echo "strongSwan launcher replaced"
+          echo "======================================"
 
 
-      # --------------------------------------------------
-      # 12. بررسی فایل‌های M30
-      # --------------------------------------------------
+      # ============================================
+      # 12. Verify M30
+      # ============================================
       - name: Verify M30 files
         run: |
 
           APP="strongswan/src/frontends/android/app"
 
-          echo "Checking M30Activity..."
-
           test -f \
             "$APP/src/main/java/org/strongswan/android/ui/M30Activity.java"
-
-          echo "Checking M30 colors..."
 
           test -f \
             "$APP/src/main/res/values/m30_colors.xml"
 
-          echo "Checking M30 strings..."
-
           test -f \
             "$APP/src/main/res/values/m30_strings.xml"
-
-          echo "Checking M30 theme..."
 
           test -f \
             "$APP/src/main/res/values/m30_themes.xml"
 
-          echo ""
-          echo "All M30 files: OK"
+          test -f \
+            "$APP/src/main/res/drawable/m30_icon.xml"
+
+          echo "======================================"
+          echo "All M30 files OK"
+          echo "======================================"
 
 
-      # --------------------------------------------------
-      # 13. ساخت APK
-      # --------------------------------------------------
-      - name: Build M30 APK
+      # ============================================
+      # 13. BUILD DEBUG APK
+      #
+      # مهم:
+      # assembleDebug استفاده می‌کنیم.
+      #
+      # Android Gradle Plugin نسخه Debug را
+      # خودکار با debug keystore امضا می‌کند.
+      #
+      # بنابراین APK قابل نصب خواهد بود.
+      # ============================================
+      - name: Build signed M30 Debug APK
         working-directory: strongswan/src/frontends/android
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_ROOT }}
@@ -295,20 +294,20 @@ jobs:
 
           ./gradlew \
             clean \
-            assembleRelease \
+            assembleDebug \
             --no-daemon \
             --stacktrace
 
 
-      # --------------------------------------------------
-      # 14. پیدا کردن APK
-      # --------------------------------------------------
+      # ============================================
+      # 14. Find APK
+      # ============================================
       - name: Find APK
         run: |
 
-          echo "================================="
-          echo "Searching for APK..."
-          echo "================================="
+          echo "======================================"
+          echo "APK FILES"
+          echo "======================================"
 
           find \
             strongswan/src/frontends/android/app/build/outputs/apk \
@@ -317,13 +316,13 @@ jobs:
             -print
 
 
-      # --------------------------------------------------
-      # 15. ذخیره APK در GitHub Actions
-      # --------------------------------------------------
+      # ============================================
+      # 15. Upload signed APK
+      # ============================================
       - name: Upload M30 APK
         uses: actions/upload-artifact@v4
         with:
-          name: M30-real-strongSwan-IKEv2
+          name: M30-signed-debug
           path: |
             strongswan/src/frontends/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
